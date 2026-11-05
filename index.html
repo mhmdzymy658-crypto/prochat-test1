@@ -4646,7 +4646,12 @@ async function boot0(u) {
   let snap;
   for (let t = 0; t < 4; t++) {
     try { snap = await getDoc(doc(db, 'users', u.uid)); }
-    catch { net(true); $('splash').classList.add('hidden'); $('app').classList.remove('hidden'); return; }
+    catch (e) {
+  console.error('PROCHAT BOOT ERROR:', e);
+  net(true);
+  alert('خطای بارگذاری اطلاعات کاربر: ' + (e?.message || e));
+  return;
+  }
     if (snap.exists()) break;
     await new Promise(r => setTimeout(r, 180));
   }
