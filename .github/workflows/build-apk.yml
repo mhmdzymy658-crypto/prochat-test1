@@ -22,16 +22,16 @@ jobs:
           distribution: temurin
           java-version: 21
 
-      - name: Install packages
+      - name: Install Dependencies
         run: npm install
 
-      - name: Prepare web files
+      - name: Prepare Website
         run: |
           mkdir -p www
           cp index.html www/
           cp -r gifts icons music stickers www/
 
-      - name: Create Android project
+      - name: Add Android Platform
         run: npx cap add android
 
       - name: Sync Android
