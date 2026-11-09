@@ -1,6 +1,9 @@
 {
-  "version": "1.98.10",
-  "build": "splash-prochat",
-  "date": "2026-11-09",
-  "notes": "اسپلش جدید پرو چت با قاب طلایی و نشان اختصاصی"
+"version": "1.98.10",
+"build": "android-prochat",
+"versionCode": 1,
+"date": "2026-11-09",
+"notes": "نسخه اندروید Pro Chat با قابلیت بروزرسانی",
+"downloadUrl": "https://github.com/mhmdzymy658-crypto/prochat-test1/releases/latest/download/ProChat.apk",
+"forceUpdate": false
 }
