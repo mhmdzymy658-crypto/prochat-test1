@@ -1,60 +1,96 @@
-name: Build Pro Chat APK
+name: Pro Chat Android Build
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+push:
+branches:
+- main
+workflow_dispatch:
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Project
-        uses: actions/checkout@v4
+steps:
+  - name: Get Project
+    uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+  - name: Setup Node
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '21'
 
-      - name: Install Dependencies
-        run: npm install
+  - name: Install Dependencies
+    run: npm install
 
-      - name: Prepare Website
-        run: |
-          mkdir -p www
-          cp index.html www/
-          cp -R gifts icons music stickers www/
+  - name: Prepare All Game Files
+    run: |
+      mkdir -p www
+      cp index.html www/
 
-      - name: Check Capacitor
-        run: npx cap --version
+      for item in gifts icons music stickers; do
+        if [ -d "$item" ]; then
+          cp -R "$item" www/
+        fi
+      done
 
-      - name: Add Android Platform
-        run: npx cap add android
+      for item in manifest.json offline.html service-worker.js version.json icon-192.png icon-512.png; do
+        if [ -f "$item" ]; then
+          cp "$item" www/
+        fi
+      done
 
-      - name: Sync Android
-        run: npx cap sync android
+  - name: Check Asset Sizes
+    run: |
+      echo "=== Folder sizes ==="
+      du -sh www/* 2>/dev/null || true
 
-      - name: Build APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug
+      echo "=== Largest files ==="
+      find www -type f -printf '%s %p\n' | sort -nr | head -30
 
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProChat-Android-APK
-          path: android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+  - name: Add Android
+    run: npx cap add android
+
+  - name: Generate App Icon
+    run: |
+      if [ ! -f icon-512.png ]; then
+        echo "ERROR: icon-512.png is missing from repository root."
+        exit 1
+      fi
+
+      mkdir -p assets
+      python -m pip install Pillow
+
+      python - <<'PY'
+      from PIL import Image
+      img = Image.open("icon-512.png").convert("RGBA")
+      img = img.resize((1024, 1024), Image.Resampling.LANCZOS)
+      img.save("assets/icon-only.png")
+      PY
+
+      npm install --no-save @capacitor/assets
+      npx capacitor-assets generate --android
+
+  - name: Sync Capacitor
+    run: npx cap sync android
+
+  - name: Build APKs
+    run: |
+      cd android
+      chmod +x gradlew
+      ./gradlew assembleDebug assembleRelease --no-daemon
+
+  - name: Upload APK Files
+    uses: actions/upload-artifact@v4
+    with:
+      name: ProChat-Android-Build
+      path: android/app/build/outputs/apk/**/*.apk
+      if-no-files-found: error
