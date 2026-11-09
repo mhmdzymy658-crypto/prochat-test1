@@ -1,103 +1,110 @@
 name: Pro Chat Android Builder
 
 'on':
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+push:
+branches:
+- main
+workflow_dispatch:
 
 permissions:
-  contents: read
+contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+steps:
+  - name: Checkout Repository
+    uses: actions/checkout@v4
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
+  - name: Setup Node.js
+    uses: actions/setup-node@v4
+    with:
+      node-version: 22
+      cache: npm
 
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
+  - name: Setup Java
+    uses: actions/setup-java@v4
+    with:
+      distribution: temurin
+      java-version: '21'
 
-      - name: Install Dependencies
-        run: npm install
+  - name: Install Dependencies
+    run: npm install
 
-      - name: Prepare Game Files
-        run: |
-          mkdir -p www
-          cp index.html www/
+  - name: Prepare Game Files
+    run: |
+      rm -rf www
+      mkdir -p www
 
-          for item in gifts icons music stickers; do
-            if [ -d "$item" ]; then
-              cp -R "$item" www/
-            fi
-          done
+      cp index.html www/
 
-          for item in manifest.json offline.html service-worker.js version.json icon-192.png icon-512.png; do
-            if [ -f "$item" ]; then
-              cp "$item" www/
-            fi
-          done
+      for item in gifts icons stickers; do
+        if [ -d "$item" ]; then
+          cp -R "$item" www/
+        fi
+      done
 
-      - name: Check Game Assets
-        run: |
-          echo "GAME FILE SIZES"
-          du -sh www/* 2>/dev/null || true
+      for item in manifest.json offline.html service-worker.js version.json icon-192.png icon-512.png; do
+        if [ -f "$item" ]; then
+          cp "$item" www/
+        fi
+      done
 
-          echo "LARGEST FILES"
-          find www -type f -printf '%s %p\n' | sort -nr | head -30
+      echo "Music excluded from APK."
+      echo "Backup HTML files excluded from APK."
 
-      - name: Prepare App Icon
-        run: |
-          if [ ! -f icon-512.png ]; then
-            echo "ERROR: icon-512.png missing from repository root"
-            exit 1
-          fi
+  - name: Check Game Assets
+    run: |
+      echo "TOTAL GAME SIZE"
+      du -sh www
 
-          mkdir -p assets
+      echo "LARGEST FILES"
+      find www -type f -printf '%s %p\n' | sort -nr | head -30
 
-          python -m pip install Pillow
+  - name: Prepare App Icon
+    run: |
+      if [ ! -f icon-512.png ]; then
+        echo "ERROR: icon-512.png missing"
+        exit 1
+      fi
 
-          python - <<'PY'
-          from PIL import Image
+      mkdir -p assets
 
-          img = Image.open("icon-512.png").convert("RGBA")
-          img.resize((1024, 1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
-          img.resize((2732, 2732), Image.Resampling.LANCZOS).save("assets/splash.png")
-          PY
+      python -m pip install Pillow
 
-          npm install --no-save @capacitor/assets
-          npx capacitor-assets generate --android
+      python - <<'PY'
+      from PIL import Image
 
-      - name: Add Android Platform
-        run: npx cap add android
+      img = Image.open("icon-512.png").convert("RGBA")
+      img.resize((1024, 1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
+      img.resize((2732, 2732), Image.Resampling.LANCZOS).save("assets/splash.png")
+      PY
 
-      - name: Sync Android
-        run: npx cap sync android
+      npm install --no-save @capacitor/assets
+      npx capacitor-assets generate --android
 
-      - name: Build Android APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug assembleRelease --no-daemon
+  - name: Add Android Platform
+    run: npx cap add android
 
-      - name: Show APK Sizes
-        run: |
-          echo "APK SIZE REPORT"
-          find android/app/build/outputs/apk -name "*.apk" -exec du -h {} \;
+  - name: Sync Android
+    run: npx cap sync android
 
-      - name: Upload APK Files
-        uses: actions/upload-artifact@v4
-        with:
-          name: ProChat-Android
-          path: android/app/build/outputs/apk/**/*.apk
-          if-no-files-found: error
+  - name: Build Debug APK
+    run: |
+      cd android
+      chmod +x gradlew
+      ./gradlew assembleDebug --no-daemon
+
+  - name: Show APK Size
+    run: |
+      echo "APK SIZE REPORT"
+      find android/app/build/outputs/apk -name "*.apk" -exec du -h {} \;
+
+  - name: Upload APK
+    uses: actions/upload-artifact@v4
+    with:
+      name: ProChat-Android
+      path: android/app/build/outputs/apk/debug/*.apk
+      if-no-files-found: error
+      retention-days: 14
