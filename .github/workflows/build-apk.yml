@@ -1,83 +1,103 @@
 name: Pro Chat Android Builder
 
 'on':
-push:
-branches:
-- main
-workflow_dispatch:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
 
 permissions:
-contents: read
+  contents: read
 
 jobs:
-build:
-runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest
 
-steps:
-  - name: Checkout
-    uses: actions/checkout@v4
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-  - name: Setup Node
-    uses: actions/setup-node@v4
-    with:
-      node-version: 22
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
-  - name: Setup Java
-    uses: actions/setup-java@v4
-    with:
-      distribution: temurin
-      java-version: '21'
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
 
-  - name: Install Dependencies
-    run: npm install
+      - name: Install Dependencies
+        run: npm install
 
-  - name: Prepare Game
-    run: |
-      mkdir -p www
-      cp index.html www/
+      - name: Prepare Game Files
+        run: |
+          mkdir -p www
+          cp index.html www/
 
-      for item in gifts icons music stickers; do
-        if [ -d "$item" ]; then
-          cp -R "$item" www/
-        fi
-      done
+          for item in gifts icons music stickers; do
+            if [ -d "$item" ]; then
+              cp -R "$item" www/
+            fi
+          done
 
-  - name: Prepare Icon
-    run: |
-      if [ ! -f icon-512.png ]; then
-        echo "icon-512.png is missing from repository root"
-        exit 1
-      fi
+          for item in manifest.json offline.html service-worker.js version.json icon-192.png icon-512.png; do
+            if [ -f "$item" ]; then
+              cp "$item" www/
+            fi
+          done
 
-      mkdir -p assets
+      - name: Check Game Assets
+        run: |
+          echo "GAME FILE SIZES"
+          du -sh www/* 2>/dev/null || true
 
-      python -m pip install Pillow
+          echo "LARGEST FILES"
+          find www -type f -printf '%s %p\n' | sort -nr | head -30
 
-      python - <<'PY'
-      from PIL import Image
-      img = Image.open("icon-512.png").convert("RGBA")
-      img.resize((1024, 1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
-      img.resize((2732, 2732), Image.Resampling.LANCZOS).save("assets/splash.png")
-      PY
+      - name: Prepare App Icon
+        run: |
+          if [ ! -f icon-512.png ]; then
+            echo "ERROR: icon-512.png missing from repository root"
+            exit 1
+          fi
 
-      npm install --no-save @capacitor/assets
-      npx capacitor-assets generate --android
+          mkdir -p assets
 
-  - name: Add Android
-    run: npx cap add android
+          python -m pip install Pillow
 
-  - name: Sync Android
-    run: npx cap sync android
+          python - <<'PY'
+          from PIL import Image
 
-  - name: Build APK
-    run: |
-      cd android
-      chmod +x gradlew
-      ./gradlew assembleDebug assembleRelease --no-daemon
+          img = Image.open("icon-512.png").convert("RGBA")
+          img.resize((1024, 1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
+          img.resize((2732, 2732), Image.Resampling.LANCZOS).save("assets/splash.png")
+          PY
 
-  - name: Upload APK
-    uses: actions/upload-artifact@v4
-    with:
-      name: ProChat-Android
-      path: android/app/build/outputs/apk/**/*.apk
-      if-no-files-found: error
+          npm install --no-save @capacitor/assets
+          npx capacitor-assets generate --android
+
+      - name: Add Android Platform
+        run: npx cap add android
+
+      - name: Sync Android
+        run: npx cap sync android
+
+      - name: Build Android APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug assembleRelease --no-daemon
+
+      - name: Show APK Sizes
+        run: |
+          echo "APK SIZE REPORT"
+          find android/app/build/outputs/apk -name "*.apk" -exec du -h {} \;
+
+      - name: Upload APK Files
+        uses: actions/upload-artifact@v4
+        with:
+          name: ProChat-Android
+          path: android/app/build/outputs/apk/**/*.apk
+          if-no-files-found: error
