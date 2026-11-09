@@ -31,7 +31,7 @@ steps:
   - name: Install Dependencies
     run: npm install
 
-  - name: Prepare Game Files
+  - name: Prepare Game
     run: |
       mkdir -p www
       cp index.html www/
@@ -42,39 +42,22 @@ steps:
         fi
       done
 
-      for item in manifest.json offline.html service-worker.js version.json icon-192.png icon-512.png; do
-        if [ -f "$item" ]; then
-          cp "$item" www/
-        fi
-      done
-
-  - name: Prepare App Icon
+  - name: Prepare Icon
     run: |
-      ICON=""
-
-      if [ -f icon-512.png ]; then
-        ICON="icon-512.png"
-      elif [ -f icons/icon-512.png ]; then
-        ICON="icons/icon-512.png"
-      elif [ -f icon-192.png ]; then
-        ICON="icon-192.png"
-      elif [ -f icons/icon-192.png ]; then
-        ICON="icons/icon-192.png"
-      else
-        echo "No app icon found"
+      if [ ! -f icon-512.png ]; then
+        echo "icon-512.png is missing from repository root"
         exit 1
       fi
 
       mkdir -p assets
+
       python -m pip install Pillow
 
-      ICON_FILE="$ICON" python - <<'PY'
-      import os
+      python - <<'PY'
       from PIL import Image
-
-      img = Image.open(os.environ["ICON_FILE"]).convert("RGBA")
-      img.resize((1024,1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
-      img.resize((2732,2732), Image.Resampling.LANCZOS).save("assets/splash.png")
+      img = Image.open("icon-512.png").convert("RGBA")
+      img.resize((1024, 1024), Image.Resampling.LANCZOS).save("assets/icon-only.png")
+      img.resize((2732, 2732), Image.Resampling.LANCZOS).save("assets/splash.png")
       PY
 
       npm install --no-save @capacitor/assets
@@ -92,11 +75,7 @@ steps:
       chmod +x gradlew
       ./gradlew assembleDebug assembleRelease --no-daemon
 
-  - name: Show APK Sizes
-    run: |
-      find android/app/build/outputs/apk -name "*.apk" -exec du -h {} \;
-
-  - name: Upload APKs
+  - name: Upload APK
     uses: actions/upload-artifact@v4
     with:
       name: ProChat-Android
