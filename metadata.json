@@ -1,0 +1,6 @@
+{
+  "name": "پرو چت",
+  "description": "پروفایل گرافیکی حرفه‌ای بازی پرو چت با طراحی کیهانی و جزئیات تعاملی",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
